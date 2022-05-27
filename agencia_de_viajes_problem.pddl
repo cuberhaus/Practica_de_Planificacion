@@ -1,8 +1,9 @@
 (define (problem agencia_viaje)
 	(:domain agencia_viaje)
 	(:objects 
-		a b c - valor
-		p1 p2 p3 - posicio
+		c1 c2 c3 - ciudad
+	    v1 v2 v3 - vuelo
+		h1 h2 h3 - hotel
 	)
 	(:init 
 		(Posicio a p1)	
