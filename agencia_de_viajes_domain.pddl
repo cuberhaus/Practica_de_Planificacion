@@ -1,17 +1,22 @@
 (define (domain vector_typed)
-	(:requirements :strips :typing)
+	(:requirements :strips :typing :fluents)
 	(:types
+		; ciutat_a_visitar - ciutat_a_visitar
 		ciudad - ciudad
 		hotel - hotel
 		vuelo - vuelo
 	)
-
+	(:functions
+		(num_ciudades_escogidas)
+		(min_ciudades_a_recoger)
+		; (prova ?x) ;; les funciones poden tenir variables, si posem dos variables es com afegir una "relacio" entre dos variables
+	)
 	(:predicates
 		(va_a ?x - vuelo ?y - ciudad ?z - ciudad)
 		(esta_en ?x - hotel ?y - ciudad)
 		(ciudad_visitada ?c - ciudad)
 		(alojamiento_escogido ?h - ciudad)
-		(current_ciudad ?c - ciudad)
+		(current_ciudad ?c - ciudad) "fs" ],
 	)
 
 	(:action anadir_ciudad
