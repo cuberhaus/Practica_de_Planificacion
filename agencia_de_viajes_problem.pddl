@@ -18,7 +18,11 @@
 		(esta_en h3 c3)
 	)
 
+	(:metric maximize 
+		(num_ciudades_escogidas)
+	)
+
 	(:goal (and
-	(forall (?m - ciutat_a_visitar) )
+		(== (min_ciudades_a_recoger) (num_ciudades_escogidas))
 	))
 )
