@@ -28,6 +28,7 @@
 			)
 		:effect (and
 			(ciudad_visitada ?c2) (alojamiento_escogido ?h) (vuelo_escogido ?v)
+			(not (current_ciudad ?c1)) (current_ciudad ?c2)
 			(increase (num_ciudades_escogidas) 1)
 			)
 	)

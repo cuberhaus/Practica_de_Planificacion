@@ -27,6 +27,6 @@
 	; )
 
 	(:goal (and
-		(>= (min_ciudades_a_recoger) (num_ciudades_escogidas))
+		(<= (min_ciudades_a_recoger) (num_ciudades_escogidas))
 	))
 )
