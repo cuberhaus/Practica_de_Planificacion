@@ -10,7 +10,7 @@
 		(= (num_ciudades_escogidas) 0)
 		(= (min_ciudades_a_recoger) 3)
 		(= (num_dias_recorrido) 0)
-		(= (min_ciudades_a_recoger) 0)
+		(= (min_dias_recorrido) 0)
 
 		(current_ciudad cg1)
 		(ciudad_visitada cg1)
