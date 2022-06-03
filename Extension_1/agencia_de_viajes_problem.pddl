@@ -5,12 +5,20 @@
 		cg1 c1 c2 c3 - ciudad
 	    vg1 v1 v2 v3 - vuelo
 		h1 h2 h3 - hotel
+		dias1 dias2 dias3 dias4 - dias_por_ciudad
 	)
 	(:init 
 		(= (num_ciudades_escogidas) 0)
 		(= (min_ciudades_a_recoger) 3)
+		(= (min_dias_por_ciudad) 1)
+		(= (max_dias_por_ciudad) 4)
 		(= (num_dias_recorrido) 0)
-		(= (min_dias_recorrido) 0)
+		(= (min_dias_recorrido) 10)
+
+		(= (dias_por_ciudad dias1) 1)
+		(= (dias_por_ciudad dias2) 2)
+		(= (dias_por_ciudad dias3) 3)
+		(= (dias_por_ciudad dias4) 4)
 
 		(current_ciudad cg1)
 		(ciudad_visitada cg1)
