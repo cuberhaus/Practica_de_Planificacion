@@ -1,7 +1,6 @@
 (define (problem agencia_viaje)
 	(:domain agencia_viaje)
 	(:objects 
-		; m1 m2 m3 m4 m5 m6 - ciutat_a_visitar
 		cg1 c1 c2 c3 - ciudad
 	    vg1 v1 v2 v3 - vuelo
 		h1 h2 h3 - hotel
@@ -19,6 +18,9 @@
 		(= (dias_por_ciudad dias2) 2)
 		(= (dias_por_ciudad dias3) 3)
 		(= (dias_por_ciudad dias4) 4)
+		(= (min_precio_plan) 300)
+		(= (max_precio_plan) 4000)
+		(= (precio_plan) 0)
 
 		(current_ciudad cg1)
 		(ciudad_visitada cg1)
@@ -31,6 +33,14 @@
 		(esta_en h1 c1)
 		(esta_en h2 c2)
 		(esta_en h3 c3)
+
+		(= (precio_hotel h1) 300)
+		(= (precio_hotel h2) 150)
+		(= (precio_hotel h3) 700)
+		(= (precio_vuelo vg1) 0)
+		(= (precio_vuelo v1) 100)
+		(= (precio_vuelo v2) 150)
+		(= (precio_vuelo v3) 150)
 	)
 
 	; (:metric maximize 
@@ -38,6 +48,8 @@
 	; )
 
 	(:goal (and
+		(<= (min_precio_plan) (precio_plan))
+		(>= (max_precio_plan) (precio_plan))
 		(<= (min_ciudades_a_recoger) (num_ciudades_escogidas))
 		(<= (min_dias_recorrido) (num_dias_recorrido))
 	))
