@@ -44,6 +44,7 @@
 		(<= (min_dias_recorrido) (num_dias_recorrido))
 	))
 	;; maximize negativo minimize negativo o viceversa
+	;; minimize va DESPUES del goal
 	(:metric minimize 
 		(interes_actual)
 	)
