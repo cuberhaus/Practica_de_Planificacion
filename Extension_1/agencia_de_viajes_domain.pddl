@@ -7,7 +7,12 @@
 	)
 	(:functions
 		(num_ciudades_escogidas)
+		(num_dias_recorrido)
+
 		(min_ciudades_a_recoger)
+		(min_dias_recorrido)
+		(min_dias_por_ciudad)
+		(max_dias_por_ciudad)
 		; (coste ?x ?y) ;; les funciones poden tenir variables, si posem dos variables es com afegir una "relacio" entre dos variables
 	)
 	(:predicates
@@ -32,4 +37,10 @@
 			(increase (num_ciudades_escogidas) 1)
 			)
 	)
+	(:action asignar_dias_ciudad
+		:parameters ()
+		:precondition (and )
+		:effect (and )
+	)
+	
 )
