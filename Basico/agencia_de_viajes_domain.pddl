@@ -8,7 +8,6 @@
 	(:functions
 		(num_ciudades_escogidas)
 		(min_ciudades_a_recoger)
-		; (prova ?x) ;; les funciones poden tenir variables, si posem dos variables es com afegir una "relacio" entre dos variables
 	)
 	(:predicates
 		(va_a ?x - vuelo ?y - ciudad ?z - ciudad)

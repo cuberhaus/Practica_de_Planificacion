@@ -38,12 +38,13 @@
 		(esta_en h3 c3)
 	)
 
-	; (:metric minimize 
-	; 	(interes_actual)
-	; )
 
 	(:goal (and
 		(<= (min_ciudades_a_recoger) (num_ciudades_escogidas))
 		(<= (min_dias_recorrido) (num_dias_recorrido))
 	))
+	;; maximize negativo minimize negativo o viceversa
+	(:metric minimize 
+		(interes_actual)
+	)
 )
