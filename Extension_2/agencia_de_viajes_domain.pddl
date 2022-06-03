@@ -16,10 +16,11 @@
 		(max_dias_por_ciudad)
 
 		(dias_por_ciudad ?x - dias_por_ciudad)
-		; (coste ?x ?y) ;; les funciones poden tenir variables, si posem dos variables es com afegir una "relacio" entre dos variables
+
+		(interes_ciudad ?c - ciudad)
+		(interes_actual)
 	)
 	(:predicates
-		; (dias_por_ciudad ?x - dias_por_ciudad) 
 		(va_a ?x - vuelo ?y - ciudad ?z - ciudad)
 		(esta_en ?x - hotel ?y - ciudad)
 		(ciudad_visitada ?c - ciudad)
@@ -42,12 +43,8 @@
 			(not (current_ciudad ?c1)) (current_ciudad ?c2)
 			(increase (num_ciudades_escogidas) 1)
 			(increase (num_dias_recorrido) (dias_por_ciudad ?d))
+			(increase (interes_actual) (interes_ciudad ?c2))
 			)
-	)
-	(:action asignar_dias_ciudad
-		:parameters ()
-		:precondition (and )
-		:effect (and )
 	)
 	
 )
