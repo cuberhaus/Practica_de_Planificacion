@@ -7,8 +7,7 @@ if __name__ == "__main__":
 
     print("Inserte el numero de ciudades a generar")
     nciu = int(input())
-    print("Inserte el numero de vuelos a generar")
-
+    
     print("Inserte el número mínimo de ciudades a visitar")
     nciumin = input()
 

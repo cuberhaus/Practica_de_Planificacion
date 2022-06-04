@@ -61,11 +61,6 @@ if __name__ == "__main__":
     print("Introduce el mínimo número de dias del recorrido")
     mindiasrecorrido = int(input())
 
-    print("Introduce el mínimo precio del viaje")
-    minprecio = int(input())
-    print("Introduce el máximo precio del viaje")
-    maxprecio = int(input())
-
     print("""(define (problem agencia_viaje)
     (:domain agencia_viaje)
     (:objects""")
@@ -99,41 +94,27 @@ if __name__ == "__main__":
 
     for i in range(diasminporciudad, diasmaxporciudad + 1):
         print("        (= (dias_por_ciudad dias" + str(i) + ') ' + str(i) + ')')
-
-    print("        (= (min_precio_plan) " + str(minprecio) + ')')
-    print("        (= (max_precio_plan) " + str(maxprecio) + ')')
-
-    print("""        (= (precio_plan) 0)
-        (current_ciudad cg1)
+    print("         (= (interes_actual) 0)")
+    for i in range(nciu):
+        interes = random.randint(0,nciu)
+        print("        (= (interes_ciudad " + ciudades[i] + ') ' + str(interes) + ')')
+    print("""        (current_ciudad cg1)
+        (= (interes_ciudad cg1) 0)
         (ciudad_visitada cg1)""")
     for i in vuelosfantasma:
         print(i)
     for i in vuelosentreciu:
         print(i)
-
-    for i in alojamientos:
-        precio = random.randint(10,300)
-        print("        (= (precio_hotel " + i + ') ' + str(precio) + ')')
-
-    for i in vuelos:
-        if i != "vg1":
-            precio = random.randint(10, 300)
-            print("        (= (precio_vuelo " + i + ') ' + str(precio) + ')')
-    print("        (= (precio_vuelo vg1) 0)")
-
     print(""" 
     )
         
     (:goal (and
-        (<= (min_precio_plan) (precio_plan))
-        (>= (max_precio_plan) (precio_plan))
-        (<= (min_ciudades_a_recoger) (num_ciudades_escogidas))
-        (<= (min_dias_recorrido) (num_dias_recorrido))
+    (<= (min_ciudades_a_recoger) (num_ciudades_escogidas))
     ))
     ;; maximize negativo minimize negativo o viceversa
-    ;; minimize va DESPUES del goal
-    (:metric minimize 
-        (precio_plan)
-    )
+	;; minimize va DESPUES del goal
+	(:metric minimize 
+		(interes_actual)
+	)
 )
     """)

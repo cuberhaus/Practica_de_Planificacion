@@ -100,11 +100,16 @@ if __name__ == "__main__":
     for i in range(diasminporciudad, diasmaxporciudad + 1):
         print("        (= (dias_por_ciudad dias" + str(i) + ') ' + str(i) + ')')
 
+    for i in range(nciu):
+        interes = random.randint(0,nciu)
+        print("        (= (interes_ciudad " + ciudades[i] + ') ' + str(interes) + ')')
     print("        (= (min_precio_plan) " + str(minprecio) + ')')
     print("        (= (max_precio_plan) " + str(maxprecio) + ')')
 
     print("""        (= (precio_plan) 0)
         (current_ciudad cg1)
+        (= (interes_ciudad cg1) 0)
+        (= (interes_actual) 0)
         (ciudad_visitada cg1)""")
     for i in vuelosfantasma:
         print(i)
@@ -133,7 +138,7 @@ if __name__ == "__main__":
     ;; maximize negativo minimize negativo o viceversa
     ;; minimize va DESPUES del goal
     (:metric minimize 
-        (precio_plan)
+        (+ (precio_plan) (* (interes_actual) 400))
     )
 )
     """)
