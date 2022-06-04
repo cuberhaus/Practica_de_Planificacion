@@ -31,7 +31,7 @@
 		(va_a ?v - vuelo ?c1 - ciudad ?c2 - ciudad)
 		(esta_en ?h - hotel ?c - ciudad)
 		(ciudad_visitada ?c - ciudad)
-		(alojamiento_escogido ?h - hotel)
+		(current_ciudad ?c - ciudad)
 	)
 
 	(:action anadir_ciudad
