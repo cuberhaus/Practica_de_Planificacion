@@ -1,7 +1,6 @@
 (define (problem agencia_viaje)
 	(:domain agencia_viaje)
 	(:objects 
-		; m1 m2 m3 m4 m5 m6 - ciutat_a_visitar
 		cg1 c1 c2 c3 - ciudad
 	    vg1 v1 v2 v3 - vuelo
 		h1 h2 h3 - hotel
