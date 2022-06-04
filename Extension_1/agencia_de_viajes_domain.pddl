@@ -42,10 +42,5 @@
 			(increase (num_dias_recorrido) (dias_por_ciudad ?d))
 			)
 	)
-	(:action asignar_dias_ciudad
-		:parameters ()
-		:precondition (and )
-		:effect (and )
-	)
 	
 )
