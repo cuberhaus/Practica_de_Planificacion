@@ -39,15 +39,26 @@ if __name__ == "__main__":
     aux = copy.copy(ciudades)
     aux.pop(0)
     random.shuffle(aux)
+    aux = False
+    found = False
     for i in range(len(vuelos)):
         if vuelos[i] != "vg1":
+            if i > nciu:
+                if not found:
+                    random.shuffle(aux)
+                    found = True
             i1 = i % nciu
             i2 = (i + 1) % nciu
             corigen = aux[i1]
             cdest = aux[i2]
             vuelosentreciu.append('        (' + "va_a " + vuelos[i] + " " + corigen + " " + cdest + ' )')
 
+    found = False
     for i in range(len(alojamientos)):
+        if i > nalojamientos:
+            if not found:
+                random.shuffle(aux)
+                found = True
         i1 = i % nciu
         ciualoja = aux[i1]
         vuelosentreciu.append('        (' + "esta_en " + alojamientos[i] + " " + ciualoja + ' )')
