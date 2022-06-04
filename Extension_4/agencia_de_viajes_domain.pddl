@@ -5,8 +5,6 @@
 		hotel - hotel
 		vuelo - vuelo
 		dias_por_ciudad - dias_por_ciudad
-		precio_hotel - precio_hotel
-		precio_vuelo - precio_vuelo
 	)
 	(:functions
 		(num_ciudades_escogidas)
