@@ -43,9 +43,6 @@
 		(= (precio_vuelo v3) 150)
 	)
 
-	; (:metric maximize 
-	; 	(num_ciudades_escogidas)
-	; )
 
 	(:goal (and
 		(<= (min_precio_plan) (precio_plan))
@@ -53,4 +50,8 @@
 		(<= (min_ciudades_a_recoger) (num_ciudades_escogidas))
 		(<= (min_dias_recorrido) (num_dias_recorrido))
 	))
+
+	(:metric minimize 
+		(precio_plan)
+	)
 )

@@ -25,7 +25,4 @@
 		(<= (min_ciudades_a_recoger) (num_ciudades_escogidas))
 	))
 
-	(:metric maximize 
-		(num_ciudades_escogidas)
-	)
 )

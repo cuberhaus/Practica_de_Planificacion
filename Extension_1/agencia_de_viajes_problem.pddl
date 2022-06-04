@@ -33,12 +33,9 @@
 		(esta_en h3 c3)
 	)
 
-	; (:metric maximize 
-	; 	(num_ciudades_escogidas)
-	; )
-
 	(:goal (and
 		(<= (min_ciudades_a_recoger) (num_ciudades_escogidas))
 		(<= (min_dias_recorrido) (num_dias_recorrido))
 	))
+
 )
