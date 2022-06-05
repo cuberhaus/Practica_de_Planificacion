@@ -39,7 +39,6 @@ if __name__ == "__main__":
     aux = copy.copy(ciudades)
     aux.pop(0)
     random.shuffle(aux)
-    aux = False
     found = False
     for i in range(len(vuelos)):
         if vuelos[i] != "vg1":
