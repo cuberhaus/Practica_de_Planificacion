@@ -9,11 +9,11 @@
 	(:init 
 		(= (num_ciudades_escogidas) 0)
 		(= (min_ciudades_a_recoger) 3)
+
 		(= (min_dias_por_ciudad) 1)
 		(= (max_dias_por_ciudad) 4)
 		(= (num_dias_recorrido) 0)
 		(= (min_dias_recorrido) 10)
-
 		(= (dias_por_ciudad dias1) 1)
 		(= (dias_por_ciudad dias2) 2)
 		(= (dias_por_ciudad dias3) 3)
