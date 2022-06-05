@@ -115,6 +115,7 @@ if __name__ == "__main__":
         
     (:goal (and
     (<= (min_ciudades_a_recoger) (num_ciudades_escogidas))
+    (<= (min_dias_recorrido) (num_dias_recorrido))
     ))
 )
     """)
