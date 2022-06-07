@@ -1,4 +1,4 @@
-# Practica_de_planificacion
+# Practica de planificacion
 
 ## Índice
 - Basico/ : Incluye el dominio, los problemas usados como juegos de prueba i el generador
