@@ -1,4 +1,5 @@
 ._*
+*.zip
 
 # Web interface
 web/node_modules/
