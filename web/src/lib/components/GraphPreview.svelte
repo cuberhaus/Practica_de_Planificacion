@@ -106,12 +106,13 @@
 		if (!container || !problem) return;
 		if (problem.objects.cities.length === 0) return;
 
-		const vis = await import('vis-network');
+		const { Network } = await import('vis-network');
+		const { DataSet } = await import('vis-data');
 		const { nodes, edges } = buildGraph(problem, highlightRoute);
 
 		const data = {
-			nodes: new vis.DataSet(nodes),
-			edges: new vis.DataSet(edges)
+			nodes: new DataSet(nodes),
+			edges: new DataSet(edges)
 		};
 
 		const options = {
@@ -126,7 +127,7 @@
 		if (network) {
 			(network as { destroy: () => void }).destroy();
 		}
-		network = new vis.Network(container, data, options);
+		network = new Network(container, data, options);
 	}
 
 	onMount(() => {

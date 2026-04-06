@@ -1,5 +1,4 @@
 <script lang="ts">
-	import PddlEditor from '$lib/components/PddlEditor.svelte';
 	import GraphPreview from '$lib/components/GraphPreview.svelte';
 	import PlanSteps from '$lib/components/PlanSteps.svelte';
 	import { parsePddlProblem, parsePlan, type PddlProblem, type PlanResult } from '$lib/pddl';
@@ -93,9 +92,9 @@
 		</div>
 	{/if}
 
-	<div class="grid grid-cols-[1fr_1fr] gap-6">
+	<div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6">
 		<!-- Left: Config + Results -->
-		<div class="flex flex-col gap-4">
+		<div class="flex min-w-0 flex-col gap-4">
 			<div class="rounded-xl border border-border bg-surface p-5">
 				<h2 class="mb-4 text-sm font-semibold uppercase tracking-wider text-text-muted">
 					Configuration
@@ -164,7 +163,7 @@
 					{#if activeTab === 'steps'}
 						<PlanSteps plan={planResult} />
 					{:else if activeTab === 'raw'}
-						<PddlEditor value={rawOutput} readonly />
+						<pre class="max-h-96 overflow-auto rounded-lg bg-surface-light p-4 font-mono text-xs leading-relaxed text-text-muted">{rawOutput}</pre>
 					{:else if activeTab === 'graph' && parsedProblem}
 						<GraphPreview problem={parsedProblem} highlightRoute={route} />
 					{/if}
@@ -174,7 +173,7 @@
 					<h2 class="mb-3 text-sm font-semibold uppercase tracking-wider text-text-muted">
 						Planner Output
 					</h2>
-					<PddlEditor value={rawOutput} readonly />
+					<pre class="max-h-96 overflow-auto rounded-lg bg-surface-light p-4 font-mono text-xs leading-relaxed text-text-muted">{rawOutput}</pre>
 				</div>
 			{/if}
 		</div>

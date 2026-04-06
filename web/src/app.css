@@ -19,3 +19,14 @@ body {
 	@apply bg-surface text-text antialiased;
 	font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
+
+select,
+select option {
+	color: var(--color-text);
+	background-color: var(--color-surface-light);
+}
+
+select option:checked {
+	background-color: var(--color-primary);
+	color: white;
+}
