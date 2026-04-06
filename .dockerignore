@@ -1,0 +1,10 @@
+web/node_modules/
+web/.svelte-kit/
+web/build/
+web/tools/
+*.zip
+.git
+.gitignore
+.dockerignore
+README.md
+*.pdf

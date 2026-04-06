@@ -1,4 +1,4 @@
-.PHONY: help dev install planner clean zip
+.PHONY: help dev install planner docker-build docker-run clean zip
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*##"}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -10,8 +10,21 @@ dev: ## Launch the SvelteKit web app (installs deps if needed)
 install: ## Install web dependencies
 	cd web && npm install
 
-planner: ## Install Fast Downward planner (requires cmake, g++, python3)
+planner: ## Install Metric-FF planner (requires gcc, flex, bison)
 	bash web/install-planner.sh
+
+docker-build: ## Build Docker image
+	docker build -t practica-planificacion .
+
+docker-run: ## Run Docker container locally (PDDL dirs bind-mounted for persistence)
+	docker run --rm -p 3000:3000 \
+	  -v $(PWD)/Basico:/app/Basico \
+	  -v $(PWD)/Extension_1:/app/Extension_1 \
+	  -v $(PWD)/Extension_2:/app/Extension_2 \
+	  -v $(PWD)/Extension_3:/app/Extension_3 \
+	  -v $(PWD)/Extension_4:/app/Extension_4 \
+	  -v $(PWD)/Extra_2:/app/Extra_2 \
+	  practica-planificacion
 
 Sara_Buceta_Pol_Casacuberta_Alejandro_Espinosa.zip: src.zip practica_de_planificacion.pdf ## Build submission zip
 	zip -r Sara_Buceta_Pol_Casacuberta_Alejandro_Espinosa.zip $^
