@@ -3,37 +3,44 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TOOLS_DIR="$SCRIPT_DIR/tools"
-FD_DIR="$TOOLS_DIR/fast-downward"
+FF_DIR="$TOOLS_DIR/metric-ff"
 
-echo "=== Fast Downward Installer ==="
+echo "=== Metric-FF Installer ==="
 echo ""
 
-# Check prerequisites
-for cmd in cmake g++ python3 git; do
+for cmd in make gcc flex bison; do
     if ! command -v "$cmd" &>/dev/null; then
         echo "ERROR: $cmd is required but not installed."
-        echo "Install it with: sudo apt install $cmd"
+        echo "Install with: sudo apt install build-essential flex bison"
         exit 1
     fi
 done
 
-mkdir -p "$TOOLS_DIR"
-
-if [ -d "$FD_DIR" ]; then
-    echo "Fast Downward directory already exists at $FD_DIR"
-    echo "Delete it first if you want to reinstall."
+if [ -x "$FF_DIR/ff" ]; then
+    echo "Metric-FF is already compiled at $FF_DIR/ff"
     exit 0
 fi
 
-echo "Cloning Fast Downward..."
-git clone --depth 1 https://github.com/aibasel/downward.git "$FD_DIR"
+if [ ! -d "$FF_DIR" ]; then
+    echo "Cloning Metric-FF..."
+    git clone --depth 1 https://github.com/caelan/Metric-FF.git "$FF_DIR"
+fi
 
 echo ""
-echo "Building Fast Downward..."
-cd "$FD_DIR"
-python3 build.py
+echo "Building Metric-FF..."
+cd "$FF_DIR"
+
+# Fix errno macro collision in parser files
+sed -i 's/int errno,/int errnum,/g' scan-fct_pddl.y scan-ops_pddl.y 2>/dev/null || true
+
+# Fix makefile for modern GCC
+sed -i 's/-O6 -ansi/-O2/g' makefile
+sed -i 's/$(ADDONS) -g/$(ADDONS) -g -Wno-format-overflow -fcommon/' makefile
+
+make clean
+make
 
 echo ""
 echo "=== Installation complete ==="
-echo "Fast Downward installed at: $FD_DIR"
+echo "Metric-FF installed at: $FF_DIR/ff"
 echo "You can now use the Planner tab in the web interface."

@@ -14,7 +14,7 @@
 	let planFileContent = $state('');
 	let planResult = $state<PlanResult | null>(null);
 	let parsedProblem = $state<PddlProblem | null>(null);
-	let activeTab = $state<'steps' | 'raw' | 'graph'>('steps');
+	let activeTab = $state<'steps' | 'raw'>('steps');
 
 	let currentPair = $derived(data.pairs.find((p) => p.dir === selectedDir));
 	let problems = $derived(currentPair?.problems ?? []);
@@ -25,6 +25,25 @@
 		}
 	});
 
+	$effect(() => {
+		if (selectedDir && selectedProblem) {
+			loadProblemGraph(selectedDir, selectedProblem);
+		}
+	});
+
+	async function loadProblemGraph(dir: string, problem: string) {
+		const problemPath = `${dir}/${problem}`;
+		try {
+			const res = await fetch(`/api/files?path=${encodeURIComponent(problemPath)}`);
+			if (res.ok) {
+				const data = await res.json();
+				parsedProblem = parsePddlProblem(data.content);
+			}
+		} catch {
+			parsedProblem = null;
+		}
+	}
+
 	async function runPlanner() {
 		if (!currentPair || !selectedProblem) return;
 		running = true;
@@ -32,18 +51,10 @@
 		rawOutput = '';
 		planFileContent = '';
 		planResult = null;
-		parsedProblem = null;
 
 		try {
 			const domainPath = `${selectedDir}/${currentPair.domain}`;
 			const problemPath = `${selectedDir}/${selectedProblem}`;
-
-			// Load the problem file for graph visualization
-			const fileRes = await fetch(`/api/files?path=${encodeURIComponent(problemPath)}`);
-			if (fileRes.ok) {
-				const fileData = await fileRes.json();
-				parsedProblem = parsePddlProblem(fileData.content);
-			}
 
 			const res = await fetch('/api/plan', {
 				method: 'POST',
@@ -82,12 +93,12 @@
 		<div class="rounded-xl border border-warning/50 bg-warning/10 p-6">
 			<h2 class="mb-2 text-lg font-semibold text-warning">Planner Not Installed</h2>
 			<p class="mb-4 text-sm text-text-muted">
-				Fast Downward is not installed. To set it up, run the install script from the web directory:
+				Metric-FF is not installed. Run the install script or use the Makefile:
 			</p>
-			<pre class="rounded-lg bg-surface p-4 text-sm text-text"><code>cd web && bash install-planner.sh</code></pre>
+			<pre class="rounded-lg bg-surface p-4 text-sm text-text"><code>make planner</code></pre>
 			<p class="mt-3 text-xs text-text-muted">
-				This will clone and build Fast Downward into <code>web/tools/fast-downward/</code>.
-				Requires CMake and a C++ compiler.
+				This will clone and build Metric-FF into <code>web/tools/metric-ff/</code>.
+				Requires gcc, flex, and bison.
 			</p>
 		</div>
 	{/if}
@@ -147,7 +158,7 @@
 			{#if planResult}
 				<div class="rounded-xl border border-border bg-surface p-5">
 					<div class="mb-4 flex gap-2">
-						{#each (['steps', 'raw', 'graph'] as const) as tab}
+						{#each (['steps', 'raw'] as const) as tab}
 							<button
 								onclick={() => (activeTab = tab)}
 								class="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors
@@ -155,7 +166,7 @@
 									? 'bg-primary/15 text-primary-light'
 									: 'text-text-muted hover:text-text'}"
 							>
-								{tab === 'steps' ? 'Plan Steps' : tab === 'raw' ? 'Raw Output' : 'Graph'}
+								{tab === 'steps' ? 'Plan Steps' : 'Raw Output'}
 							</button>
 						{/each}
 					</div>
@@ -164,8 +175,6 @@
 						<PlanSteps plan={planResult} />
 					{:else if activeTab === 'raw'}
 						<pre class="max-h-96 overflow-auto rounded-lg bg-surface-light p-4 font-mono text-xs leading-relaxed text-text-muted">{rawOutput}</pre>
-					{:else if activeTab === 'graph' && parsedProblem}
-						<GraphPreview problem={parsedProblem} highlightRoute={route} />
 					{/if}
 				</div>
 			{:else if rawOutput}
@@ -235,7 +244,7 @@
 			{:else}
 				<div class="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border bg-surface p-12">
 					<p class="text-center text-text-muted">
-						Select a domain and problem file, then click <strong>Run Planner</strong> to see the plan and graph visualization.
+						Select a problem file to see the network graph.
 					</p>
 				</div>
 			{/if}

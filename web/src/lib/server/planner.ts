@@ -7,12 +7,11 @@ const execFileAsync = promisify(execFile);
 
 const PROJECT_ROOT = path.resolve('..');
 const TOOLS_DIR = path.resolve('tools');
-const FD_DIR = path.join(TOOLS_DIR, 'fast-downward');
-const FD_SCRIPT = path.join(FD_DIR, 'fast-downward.py');
+const FF_BIN = path.join(TOOLS_DIR, 'metric-ff', 'ff');
 
 export async function isPlannerInstalled(): Promise<boolean> {
 	try {
-		await fs.access(FD_SCRIPT);
+		await fs.access(FF_BIN, fs.constants.X_OK);
 		return true;
 	} catch {
 		return false;
@@ -23,6 +22,34 @@ export interface PlannerResult {
 	stdout: string;
 	stderr: string;
 	planFile: string | null;
+}
+
+function extractPlanFromOutput(stdout: string): string | null {
+	const marker = 'ff: found legal plan as follows';
+	const idx = stdout.toLowerCase().indexOf(marker.toLowerCase());
+	if (idx === -1) return null;
+
+	const after = stdout.slice(idx + marker.length);
+	const lines = after.split('\n');
+	const planLines: string[] = [];
+
+	for (const line of lines) {
+		const trimmed = line.trim();
+		if (!trimmed) continue;
+		const stepMatch = trimmed.match(/^step\s+(\d+):\s+(.+)/i);
+		if (stepMatch) {
+			planLines.push(`(${stepMatch[2].toLowerCase()})`);
+			continue;
+		}
+		const contMatch = trimmed.match(/^(\d+):\s+(.+)/);
+		if (contMatch) {
+			planLines.push(`(${contMatch[2].toLowerCase()})`);
+			continue;
+		}
+		if (trimmed.startsWith('time spent:') || trimmed.startsWith('plan cost:')) break;
+	}
+
+	return planLines.length > 0 ? planLines.join('\n') + '\n' : null;
 }
 
 export async function runPlanner(
@@ -40,17 +67,15 @@ export async function runPlanner(
 	}
 
 	const args = [
-		FD_SCRIPT,
-		'--alias',
-		'lama-first',
-		domainFull,
-		problemFull
+		'-s', '0',
+		'-o', domainFull,
+		'-f', problemFull
 	];
 
 	let stdout = '';
 	let stderr = '';
 	try {
-		const result = await execFileAsync('python3', args, {
+		const result = await execFileAsync(FF_BIN, args, {
 			timeout: 120000,
 			cwd: TOOLS_DIR
 		});
@@ -60,24 +85,9 @@ export async function runPlanner(
 		const e = err as { stdout?: string; stderr?: string; code?: number };
 		stdout = e.stdout ?? '';
 		stderr = e.stderr ?? '';
-		// Fast Downward exits with various codes (e.g., 0 = solved, 12 = unsolvable)
-		// We still want to return the output
 	}
 
-	let planFile: string | null = null;
-	const planPath = path.join(TOOLS_DIR, 'sas_plan');
-	try {
-		await fs.access(planPath);
-		planFile = await fs.readFile(planPath, 'utf-8');
-		await fs.unlink(planPath);
-	} catch {
-		// no plan produced
-	}
-
-	// Also clean up Fast Downward temp file
-	try {
-		await fs.unlink(path.join(TOOLS_DIR, 'output.sas'));
-	} catch { /* ignore */ }
+	const planFile = extractPlanFromOutput(stdout);
 
 	return { stdout, stderr, planFile };
 }
