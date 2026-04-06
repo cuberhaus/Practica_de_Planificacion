@@ -76,7 +76,7 @@ export async function runPlanner(
 	let stderr = '';
 	try {
 		const result = await execFileAsync(FF_BIN, args, {
-			timeout: 120000,
+			timeout: 300000,
 			cwd: TOOLS_DIR
 		});
 		stdout = result.stdout;
