@@ -74,3 +74,40 @@ Para limpiar el entorno y borrar los archivos `.zip` generados:
 ```bash
 make clean
 ```
+
+---
+
+## Web App
+
+An interactive web frontend for the travel agency planning domain: configure passengers, cities, flights, hotels, and optimization objectives, then run the Metric-FF planner and visualize the resulting plan.
+
+**Stack:** SvelteKit (static) + FastAPI + Metric-FF planner (compiled in Docker)
+
+### Quick Start
+
+```bash
+# Docker (recommended)
+docker build -t practica-planificacion . && docker run -p 3000:3000 practica-planificacion
+# http://localhost:3000
+```
+
+### Features
+
+- Visual PDDL problem builder — configure passengers, cities, flights, and hotels through a form UI
+- Automatic PDDL problem file generation from user inputs
+- Run Metric-FF planner and display the resulting action plan
+- Support for all 4 domain extensions (basic through numeric optimization)
+- Interactive plan timeline visualization
+
+### Web Structure
+
+```
+web/
+├── src/               # SvelteKit application
+├── static/            # Static assets
+├── tools/             # Metric-FF planner binary
+├── generator.py       # PDDL problem generator
+├── svelte.config.js
+├── vite.config.ts
+└── package.json
+```
