@@ -26,6 +26,29 @@ import {
 } from '@opentelemetry/api';
 import pino, { type LoggerOptions } from 'pino';
 
+// Pino worker threads don't share Node's AsyncLocalStorage with the
+// request thread, so the OTel active-span context is invisible by the
+// time pino-opentelemetry-transport serialises a record. We capture
+// trace_id / span_id in the main thread via a `mixin` and pass them as
+// regular Pino fields.
+//
+// Limitation: as of pino-opentelemetry-transport v3.0.0, the mapper
+// drops these into `LogRecord.attributes` rather than the LogRecord's
+// dedicated TraceContext, so Loki's OTLP receiver does NOT promote
+// them to stream labels — the trace_id is still queryable via
+// `{service_name="planificacion-web"} | json | trace_id="..."` after
+// a `| json` extractor, but the Tempo→Loki "view logs for this trace"
+// cross-link won't auto-light-up. Phase 4 will either monkey-patch
+// the mapper or swap the Pino transport for direct OTel-logs emission
+// to fix this; for now we ship the trace_id in attributes so the data
+// is there once correlation works.
+const traceContextMixin: NonNullable<LoggerOptions['mixin']> = () => {
+  const span = trace.getActiveSpan();
+  if (!span) return {};
+  const ctx = span.spanContext();
+  return { trace_id: ctx.traceId, span_id: ctx.spanId };
+};
+
 const SCOPE = 'planificacion';
 const SCOPE_VERSION = process.env.GIT_SHA ?? 'dev';
 
@@ -107,6 +130,7 @@ const logTransport = process.env.OTEL_EXPORTER_OTLP_ENDPOINT
 const loggerOptions: LoggerOptions = {
   level: process.env.LOG_LEVEL ?? 'info',
   base: { ns: SCOPE },
+  mixin: traceContextMixin,
   ...(logTransport ? { transport: logTransport } : {}),
 };
 

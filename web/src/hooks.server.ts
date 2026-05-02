@@ -12,11 +12,31 @@
  */
 import './instrument.js';
 
+import { performance } from 'node:perf_hooks';
 import { trace, SpanStatusCode } from '@opentelemetry/api';
 import type { Handle, HandleServerError } from '@sveltejs/kit';
 import { logger } from '$lib/observability';
 
-export const handle: Handle = async ({ event, resolve }) => resolve(event);
+// Minimal access log: one Pino line per request, joined to the active
+// trace via OTLP's automatic trace_id/span_id stamping. Cheap (a single
+// performance.now() pair plus one structured emit) and gives us a
+// service.name='planificacion-web' stream in Loki out of the box —
+// without it, Pino would only emit on unhandled errors and the logs
+// pipeline would look dead during a healthy steady state.
+export const handle: Handle = async ({ event, resolve }) => {
+  const start = performance.now();
+  const response = await resolve(event);
+  logger.info(
+    {
+      method: event.request.method,
+      path: event.url.pathname,
+      status: response.status,
+      duration_ms: Math.round((performance.now() - start) * 100) / 100,
+    },
+    'http request',
+  );
+  return response;
+};
 
 export const handleError: HandleServerError = ({ error, event }) => {
   const span = trace.getActiveSpan();
