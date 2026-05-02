@@ -1,0 +1,122 @@
+# Datasources are provisioned at Grafana startup and live for the
+# container's lifetime. Editing this file requires a `docker compose
+# restart grafana` to take effect — the file is mounted read-only and
+# Grafana never overwrites it.
+#
+# Cross-datasource correlation is wired here:
+#   - Tempo → Loki (logs for a trace)
+#   - Loki  → Tempo (trace for a log line)
+#   - Tempo → Pyroscope (profile for a span)
+#   - Mimir → Tempo (exemplars: trace from a metric data point)
+
+apiVersion: 1
+
+deleteDatasources:
+  - name: Tempo
+  - name: Loki
+  - name: Mimir
+  - name: Pyroscope
+
+datasources:
+  # Metrics — Mimir is Prometheus-compatible, the datasource type is
+  # `prometheus`. The /prometheus prefix is Mimir's read API path.
+  - name: Mimir
+    type: prometheus
+    uid: mimir
+    access: proxy
+    url: http://mimir:9009/prometheus
+    isDefault: true
+    jsonData:
+      timeInterval: 15s
+      httpMethod: POST
+      manageAlerts: false
+      alertmanagerUid: alertmanager
+      # Exemplars: when a metric carries a trace_id, link out to Tempo.
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: tempo
+          urlDisplayLabel: View trace
+
+  # Traces — Tempo, with built-in correlation to logs and profiles.
+  - name: Tempo
+    type: tempo
+    uid: tempo
+    access: proxy
+    url: http://tempo:3200
+    jsonData:
+      tracesToLogsV2:
+        datasourceUid: loki
+        spanStartTimeShift: -1m
+        spanEndTimeShift: 1m
+        # Tags that map onto Loki stream labels — keeps the log query tight.
+        tags:
+          - key: service.name
+            value: service_name
+          - key: service.namespace
+            value: service_namespace
+        filterByTraceID: true
+        filterBySpanID: false
+      tracesToMetrics:
+        datasourceUid: mimir
+        spanStartTimeShift: -1m
+        spanEndTimeShift: 1m
+        tags:
+          - key: service.name
+            value: service
+        queries:
+          - name: Request rate
+            query: 'sum(rate(traces_spanmetrics_calls_total{$$__tags}[5m]))'
+          - name: Error rate
+            query: 'sum(rate(traces_spanmetrics_calls_total{$$__tags, status_code="STATUS_CODE_ERROR"}[5m]))'
+      tracesToProfiles:
+        datasourceUid: pyroscope
+        tags:
+          - key: service.name
+            value: service_name
+        profileTypeId: 'process_cpu:cpu:nanoseconds:cpu:nanoseconds'
+      serviceMap:
+        datasourceUid: mimir
+      nodeGraph:
+        enabled: true
+      search:
+        hide: false
+      lokiSearch:
+        datasourceUid: loki
+      streamingEnabled:
+        search: true
+
+  # Logs — Loki, with derived fields that link out to Tempo by trace_id.
+  - name: Loki
+    type: loki
+    uid: loki
+    access: proxy
+    url: http://loki:3100
+    jsonData:
+      timeout: 60
+      maxLines: 5000
+      # Derived fields: when a log line contains a trace_id (in OTLP-native
+      # logs it's a top-level attribute), turn it into a clickable link.
+      derivedFields:
+        - name: trace_id
+          matcherType: label
+          matcherRegex: trace_id
+          url: '$${__value.raw}'
+          datasourceUid: tempo
+          urlDisplayLabel: View trace
+
+  # Profiles — Pyroscope, with flame graph view and span correlation.
+  - name: Pyroscope
+    type: grafana-pyroscope-datasource
+    uid: pyroscope
+    access: proxy
+    url: http://pyroscope:4040
+
+  # Alertmanager — surfaces firing alerts in Grafana's Alerting UI.
+  - name: Alertmanager
+    type: alertmanager
+    uid: alertmanager
+    access: proxy
+    url: http://alertmanager:9093
+    jsonData:
+      implementation: prometheus
+      handleGrafanaManagedAlerts: false

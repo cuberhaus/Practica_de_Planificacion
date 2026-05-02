@@ -1,0 +1,94 @@
+# Mimir 2.14 in monolithic mode (`-target=all` on the CLI). Mimir is the
+# Prometheus-compatible metrics backend — same PromQL, same remote-write
+# protocol, same exposition format. Picking Mimir over plain Prometheus
+# for this PoC because:
+#   1. Object-storage backed — no local-disk WAL retention to manage.
+#   2. Built-in multi-tenancy (single tenant for the PoC, but the wire
+#      protocol is the same on a multi-tenant VPS deploy).
+#   3. Built-in alertmanager-rule-loading — alerts-as-code lives in
+#      `/etc/alerts/` and Mimir reloads on SIGHUP.
+
+target: all
+
+multitenancy_enabled: false
+
+server:
+  http_listen_port: 9009
+  grpc_listen_port: 9095
+  log_level: warn
+
+common:
+  storage:
+    backend: s3
+    s3:
+      endpoint: ${S3_ENDPOINT}
+      bucket_name: ${S3_BUCKET}
+      access_key_id: ${S3_ACCESS_KEY}
+      secret_access_key: ${S3_SECRET_KEY}
+      insecure: ${S3_INSECURE}
+      region: ${S3_REGION}
+
+blocks_storage:
+  storage_prefix: blocks
+  bucket_store:
+    sync_dir: /data/tsdb-sync
+  tsdb:
+    dir: /data/tsdb
+
+compactor:
+  data_dir: /data/compactor
+  sharding_ring:
+    kvstore:
+      store: memberlist
+
+distributor:
+  ring:
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: memberlist
+
+ingester:
+  ring:
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: memberlist
+    replication_factor: 1
+
+store_gateway:
+  sharding_ring:
+    replication_factor: 1
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: memberlist
+
+# Alerts-as-code: Mimir loads any *.yml under this path as a rule group and
+# pushes firing alerts to Alertmanager. SIGHUP reloads.
+ruler_storage:
+  backend: local
+  local:
+    directory: /etc/alerts
+
+ruler:
+  rule_path: /data/ruler
+  alertmanager_url: http://alertmanager:9093
+  ring:
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: memberlist
+
+# Generous limits for a learning PoC. Drop these on the VPS or the free-tier
+# eats your ingestion budget.
+limits:
+  ingestion_rate: 100000
+  ingestion_burst_size: 1000000
+  max_global_series_per_user: 1000000
+  max_global_series_per_metric: 100000
+  compactor_blocks_retention_period: 168h    # 7 days
+  out_of_order_time_window: 12h
+
+memberlist:
+  bind_port: 7946
+  join_members: []
+
+usage_stats:
+  enabled: false

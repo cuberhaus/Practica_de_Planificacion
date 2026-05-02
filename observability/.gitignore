@@ -1,0 +1,6 @@
+# Local-only env file with real credentials. Commit only .env.obs.example.
+.env.obs
+
+# Grafana exports / Mimir snapshots / etc. when poking at the running stack
+*.local.json
+*.dump

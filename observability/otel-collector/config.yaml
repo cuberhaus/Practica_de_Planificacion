@@ -1,0 +1,158 @@
+# OpenTelemetry Collector (contrib distro) — single ingress for every
+# signal in the stack. Receives:
+#   - OTLP gRPC/HTTP from the SvelteKit Node server (traces / metrics / logs)
+#   - Faro events from the browser (Web Vitals / errors / RUM sessions)
+#   - Self-metrics scraped via the Prometheus receiver
+#
+# Fans out to:
+#   - Tempo  (traces)
+#   - Loki   (logs)
+#   - Mimir  (metrics — including Tempo's span-derived RED metrics)
+#
+# Note: Pyroscope profiles bypass the Collector entirely (the Node SDK pushes
+# directly to pyroscope:4040). The Collector has no profile receiver in the
+# stable contrib distro yet (as of v0.111).
+
+receivers:
+  # App-side ingest — SvelteKit Node SDK exports here.
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+        # Browser fetch from `<script src="">` would hit CORS; allow-list
+        # the SvelteKit dev / prod origins so the Faro Web SDK can also
+        # use OTLP HTTP if we ever switch off the dedicated Faro receiver.
+        cors:
+          allowed_origins:
+            - "http://localhost:3000"
+            - "http://localhost:5173"
+          allowed_headers: ["*"]
+
+  # Browser RUM ingest — Grafana Faro Web SDK posts here.
+  # The contrib distro's `faroreceiver` accepts the Faro JSON envelope and
+  # converts each signal into the OTel internal model:
+  #   - Faro errors      → Logs (severity=ERROR, with stacktrace)
+  #   - Faro events      → Logs (severity=INFO)
+  #   - Faro web vitals  → Metrics (gauges)
+  #   - Faro traces      → Traces (already OTel-shaped)
+  faro:
+    endpoint: 0.0.0.0:12347
+    cors:
+      allowed_origins:
+        - "http://localhost:3000"
+        - "http://localhost:5173"
+      allowed_headers: ["*"]
+
+  # Self-metrics: scrape the Collector's own /metrics endpoint into Mimir
+  # so the dashboards can show ingestion rate / drop rate / queue depth.
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: otel-collector
+          scrape_interval: 15s
+          static_configs:
+            - targets: ["localhost:8888"]
+
+processors:
+  # Bound the in-memory queue so a Tempo/Loki/Mimir blip can't OOM the
+  # Collector and lose ALL signals. Backpressure on the app is the right
+  # failure mode; data loss is not.
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 25
+
+  # Always batch before exporting — single-span exports waste CPU on TLS
+  # and waste bytes on protobuf framing.
+  batch:
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+    timeout: 5s
+
+  # Stamp every signal with `service.namespace=planificacion` so the
+  # dashboards can filter even after we add a second app to the stack.
+  resource:
+    attributes:
+      - key: service.namespace
+        value: planificacion
+        action: upsert
+      - key: deployment.environment
+        from_attribute: deployment.environment
+        action: insert
+
+  # Drop the local OTel Collector's own internal spans — they're noise.
+  filter/drop_self_spans:
+    error_mode: ignore
+    traces:
+      span:
+        - 'IsMatch(name, "exporter/.*")'
+
+exporters:
+  # Traces → Tempo. The `otlp_grpc` and `otlp_http` aliases replaced the
+  # legacy `otlp` / `otlphttp` names in v0.148.
+  otlp_grpc/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+    sending_queue:
+      enabled: true
+      queue_size: 5000
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+
+  # Logs → Loki via OTLP-native HTTP. Loki ≥3.0 translates resource
+  # attributes to stream labels automatically — no `loki.format` mapping.
+  otlp_http/loki:
+    endpoint: http://loki:3100/otlp
+    tls:
+      insecure: true
+
+  # Metrics → Mimir via OTLP-native HTTP. Mimir's /otlp endpoint accepts
+  # OTel metrics and rewrites them into the Prometheus model server-side.
+  otlp_http/mimir:
+    endpoint: http://mimir:9009/otlp
+    tls:
+      insecure: true
+
+  # Debug: comment in to log every signal to stdout when troubleshooting
+  # the pipeline. Off in steady state — chatty.
+  # debug:
+  #   verbosity: detailed
+
+service:
+  telemetry:
+    # `address` was deprecated in v0.123 in favour of the `readers` form.
+    # We expose self-metrics on :8888 via a Prometheus pull-style reader so
+    # the existing Mimir scrape config (above) keeps working unchanged.
+    metrics:
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888
+    logs:
+      level: warn
+
+  pipelines:
+    traces:
+      receivers: [otlp, faro]
+      processors: [memory_limiter, resource, filter/drop_self_spans, batch]
+      exporters: [otlp_grpc/tempo]
+
+    logs:
+      receivers: [otlp, faro]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlp_http/loki]
+
+    # Faro receiver in v0.148 emits traces + logs only — Web Vitals come
+    # through as logs, not metrics. Phase 4 may add a `transform` processor
+    # to lift selected log records into metric data points.
+    metrics:
+      receivers: [otlp, prometheus]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlp_http/mimir]

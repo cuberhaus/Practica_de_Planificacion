@@ -1,0 +1,32 @@
+# Bare Alertmanager config — accepts alerts but routes everything to a
+# null sink for the PoC. Phase 5 swaps the receiver for a real one
+# (Slack / email / webhook). Until then, the goal is just to verify
+# Mimir → Alertmanager wire works end-to-end.
+
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ["alertname", "service"]
+  group_wait: 10s
+  group_interval: 30s
+  repeat_interval: 4h
+  receiver: 'devnull'
+  routes:
+    - matchers:
+        - severity = "critical"
+      receiver: 'devnull'
+      group_wait: 0s
+      repeat_interval: 1h
+
+receivers:
+  - name: 'devnull'
+    # Empty receiver = silent drop. Acceptable for a PoC; replace with a
+    # real `slack_configs` / `webhook_configs` block in Phase 5.
+
+inhibit_rules:
+  - source_matchers:
+      - severity = "critical"
+    target_matchers:
+      - severity = "warning"
+    equal: ["alertname", "service"]

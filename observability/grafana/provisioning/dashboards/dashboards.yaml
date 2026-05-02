@@ -1,0 +1,20 @@
+# Dashboard provisioning: every JSON file under /var/lib/grafana/dashboards
+# (mounted from observability/grafana/dashboards/ on the host) is loaded as
+# a dashboard at startup and reloaded when the file changes on disk
+# (`updateIntervalSeconds: 30`). Editing in the Grafana UI is allowed but
+# changes don't persist — re-export and commit the JSON to keep them.
+
+apiVersion: 1
+
+providers:
+  - name: planificacion-poc
+    orgId: 1
+    folder: Practica de Planificacion
+    folderUid: planificacion
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

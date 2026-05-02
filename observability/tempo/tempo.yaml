@@ -1,0 +1,75 @@
+# Tempo 2.6 in monolithic mode — single binary holds distributor, ingester,
+# querier, query-frontend, and compactor. Trade-off vs. microservices: lower
+# operational complexity at the cost of being unable to scale individual
+# components horizontally. For a 1-vCPU PoC backend that's the right call;
+# the same config switches to microservices on the VPS by setting
+# `target: distributor`/`ingester`/etc on different replicas.
+#
+# All S3 fields are env-var driven so swapping MinIO for Hetzner / B2 / AWS
+# is purely a `.env.obs` change. `expand-env=true` is set on the CLI.
+
+target: all
+
+server:
+  http_listen_port: 3200
+  grpc_listen_port: 9095
+  log_level: warn
+
+# OTel Collector forwards traces here over OTLP. We don't expose these ports
+# to the host — only the in-network Collector reaches them.
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+
+ingester:
+  max_block_duration: 5m
+  trace_idle_period: 10s
+  flush_check_period: 10s
+
+compactor:
+  compaction:
+    block_retention: 168h        # 7 days — generous for a learning PoC
+    compaction_window: 1h
+    compacted_block_retention: 1h
+
+# S3-compatible blocks storage. MinIO speaks the v4 signing protocol so
+# `forcepathstyle: true` + `insecure: true` is the only delta vs. real S3.
+storage:
+  trace:
+    backend: s3
+    s3:
+      endpoint: ${S3_ENDPOINT}
+      bucket: ${S3_BUCKET}
+      access_key: ${S3_ACCESS_KEY}
+      secret_key: ${S3_SECRET_KEY}
+      insecure: ${S3_INSECURE}
+      forcepathstyle: true
+      region: ${S3_REGION}
+    wal:
+      path: /var/tempo/wal
+    pool:
+      max_workers: 100
+      queue_depth: 10000
+
+# Span-derived metrics: Tempo's metrics_generator turns spans into RED
+# metrics + service-graph edges, then remote-writes them to Mimir. The
+# generator runs unconditionally; per-tenant activation is via `overrides`.
+metrics_generator:
+  storage:
+    path: /var/tempo/generator/wal
+    remote_write:
+      - url: http://mimir:9009/api/v1/push
+        send_exemplars: true
+
+overrides:
+  defaults:
+    metrics_generator:
+      processors: [service-graphs, span-metrics]
+
+usage_report:
+  reporting_enabled: false

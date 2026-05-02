@@ -1,0 +1,58 @@
+# Pyroscope 1.10 in monolithic mode. Receives push-mode profiles from the
+# Pyroscope Node SDK in the SvelteKit app (see web/src/lib/otel/init.ts).
+# Pull-mode (Pyroscope scraping `/debug/pprof`) is also supported but the
+# Node SDK doesn't expose pprof endpoints, so push is simpler.
+
+target: all
+
+server:
+  http_listen_port: 4040
+  grpc_listen_port: 9097
+  log_level: warn
+
+storage:
+  backend: s3
+  s3:
+    endpoint: ${S3_ENDPOINT}
+    bucket_name: ${S3_BUCKET}
+    access_key_id: ${S3_ACCESS_KEY}
+    secret_access_key: ${S3_SECRET_KEY}
+    insecure: ${S3_INSECURE}
+    region: ${S3_REGION}
+
+compactor:
+  data_dir: /data/compactor
+
+distributor:
+  ring:
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: memberlist
+
+ingester:
+  lifecycler:
+    ring:
+      replication_factor: 1
+      kvstore:
+        store: memberlist
+
+memberlist:
+  bind_port: 7948
+  join_members: []
+
+limits:
+  max_query_length: 168h
+  max_query_lookback: 168h
+
+analytics:
+  reporting_enabled: false
+
+# Optional: Pyroscope can also pull profiles from `/debug/pprof` endpoints.
+# We don't enable scrape_configs for the PoC because the Node SDK push path
+# is simpler. Uncomment to add a scrape target for, e.g., a Go backend.
+#
+# scrape_configs:
+#   - job_name: my-app
+#     scrape_interval: 15s
+#     static_configs:
+#       - targets: ["app:6060"]

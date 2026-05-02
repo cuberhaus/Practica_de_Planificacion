@@ -1,0 +1,271 @@
+# LGTM + Pyroscope + Faro PoC for Practica_de_Planificacion.
+#
+# Brings up the entire observability stack on a private docker network, with
+# MinIO standing in for S3-compatible object storage. Storage is env-var
+# driven so swapping MinIO for real S3 (Hetzner Object Storage / Backblaze B2
+# / AWS S3) is a single .env.obs file change — no diff in tempo/loki/mimir/
+# pyroscope configs themselves.
+#
+# Bring-up:
+#   cp .env.obs.example .env.obs
+#   docker compose -f docker-compose.obs.yml --env-file .env.obs up -d
+#
+# Bring-down (preserve data):  docker compose -f docker-compose.obs.yml down
+# Bring-down (wipe data):      docker compose -f docker-compose.obs.yml down -v
+#
+# Ports (host-side). Picked to avoid conflicts with the user's existing
+# Sentry self-hosted stack (port 9000), demo containers (8888, 3001), and
+# the SvelteKit dev server (3000). Container-internal ports are unchanged
+# — only the published `host:container` mapping moves.
+#   13000 Grafana            (3000 is the SvelteKit dev server)
+#   4317  OTLP gRPC          → app sends traces / metrics / logs here
+#   4318  OTLP HTTP          → same as above, HTTP transport
+#   4040  Pyroscope          → app pushes profiles here
+#   12347 Faro receiver      → browser RUM ingestion (HTTP)
+#   3200  Tempo HTTP API     (rarely needed; Grafana proxies it)
+#   3100  Loki HTTP API      (rarely needed; Grafana proxies it)
+#   9009  Mimir HTTP API     (rarely needed; Grafana proxies it)
+#   9101  MinIO console      → S3 bucket inspector
+#   9100  MinIO S3 endpoint  (mostly internal — sentry-self-hosted owns 9000)
+#   9094  Alertmanager UI    (sentry-self-hosted owns 9093)
+#   18888 Collector metrics  (8888 is taken by a sibling demo container)
+
+name: planificacion-obs
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-s3-env: &s3-env
+  S3_ENDPOINT: ${S3_ENDPOINT:-minio:9000}
+  S3_REGION: ${S3_REGION:-us-east-1}
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY:-obsadmin}
+  S3_SECRET_KEY: ${S3_SECRET_KEY:-obsadmin123}
+  S3_INSECURE: ${S3_INSECURE:-true}
+
+services:
+  # ── Object storage ──────────────────────────────────────────────
+  minio:
+    image: minio/minio:RELEASE.2024-10-13T13-34-11Z
+    container_name: planificacion-obs-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-obsadmin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-obsadmin123}
+      # Force MinIO to claim the configured region — otherwise it picks
+      # us-west-2 by default and Loki rejects with `BucketRegionError`.
+      MINIO_REGION: ${S3_REGION:-us-east-1}
+      MINIO_SITE_REGION: ${S3_REGION:-us-east-1}
+    ports:
+      - "9100:9000"
+      - "9101:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    logging: *default-logging
+
+  # One-shot init container: creates the four buckets the LGTM stack expects.
+  # Idempotent — `mc mb --ignore-existing` is a no-op on subsequent boots.
+  minio-init:
+    image: minio/mc:RELEASE.2024-10-08T09-37-26Z
+    container_name: planificacion-obs-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        mc alias set local http://minio:9000 "$$S3_ACCESS_KEY" "$$S3_SECRET_KEY"
+        for bucket in obs-tempo obs-loki obs-mimir obs-pyroscope; do
+          mc mb --ignore-existing local/"$$bucket"
+        done
+        echo "buckets ready"
+    environment:
+      <<: *s3-env
+    restart: "no"
+    logging: *default-logging
+
+  # ── Trace store ─────────────────────────────────────────────────
+  tempo:
+    image: grafana/tempo:2.6.1
+    container_name: planificacion-obs-tempo
+    command: ["-config.file=/etc/tempo.yaml", "-config.expand-env=true"]
+    volumes:
+      - ./tempo/tempo.yaml:/etc/tempo.yaml:ro
+    environment:
+      <<: *s3-env
+      S3_BUCKET: obs-tempo
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
+    ports:
+      - "3200:3200"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    logging: *default-logging
+
+  # ── Log store ───────────────────────────────────────────────────
+  loki:
+    image: grafana/loki:3.2.1
+    container_name: planificacion-obs-loki
+    command: ["-config.file=/etc/loki/loki.yaml", "-config.expand-env=true"]
+    volumes:
+      - ./loki/loki.yaml:/etc/loki/loki.yaml:ro
+    environment:
+      <<: *s3-env
+      S3_BUCKET: obs-loki
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
+    ports:
+      - "3100:3100"
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+    logging: *default-logging
+
+  # ── Metrics store (Prometheus-compatible) ───────────────────────
+  mimir:
+    image: grafana/mimir:2.14.1
+    container_name: planificacion-obs-mimir
+    command:
+      - "-config.file=/etc/mimir.yaml"
+      - "-config.expand-env=true"
+      - "-target=all"
+    volumes:
+      - ./mimir/mimir.yaml:/etc/mimir.yaml:ro
+      - ./alerts:/etc/alerts:ro
+    environment:
+      <<: *s3-env
+      S3_BUCKET: obs-mimir
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
+    ports:
+      - "9009:9009"
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+    logging: *default-logging
+
+  # ── Profile store ───────────────────────────────────────────────
+  pyroscope:
+    image: grafana/pyroscope:1.10.0
+    container_name: planificacion-obs-pyroscope
+    command: ["-config.file=/etc/pyroscope.yaml", "-config.expand-env=true"]
+    volumes:
+      - ./pyroscope/pyroscope.yaml:/etc/pyroscope.yaml:ro
+    environment:
+      <<: *s3-env
+      S3_BUCKET: obs-pyroscope
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
+    ports:
+      - "4040:4040"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    logging: *default-logging
+
+  # ── Telemetry pipeline ──────────────────────────────────────────
+  # OTel Collector (contrib distro) is the single ingress point for
+  # everything the SvelteKit app + browser send. It receives OTLP from the
+  # app, Faro events from the browser, and fans out to the four backends.
+  otel-collector:
+    # v0.148.0 (March 2026) — has both `faro` receiver and `faro` exporter
+    # registered. Earlier tags either lacked `faroreceiver` entirely or
+    # shipped a broken amd64 binary (v0.116 fails to exec inside scratch).
+    image: otel/opentelemetry-collector-contrib:0.148.0
+    container_name: planificacion-obs-otel
+    command: ["--config=/etc/otel-collector.yaml"]
+    volumes:
+      - ./otel-collector/config.yaml:/etc/otel-collector.yaml:ro
+    ports:
+      - "4317:4317"     # OTLP gRPC (app → collector)
+      - "4318:4318"     # OTLP HTTP (app → collector)
+      - "12347:12347"   # Faro HTTP receiver (browser → collector)
+      - "18888:8888"    # Collector self-metrics (scraped by Mimir)
+    depends_on:
+      tempo:
+        condition: service_started
+      loki:
+        condition: service_started
+      mimir:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+    logging: *default-logging
+
+  # ── Alerting ────────────────────────────────────────────────────
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: planificacion-obs-alertmanager
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yaml"
+      - "--storage.path=/alertmanager"
+    volumes:
+      - ./alertmanager/alertmanager.yaml:/etc/alertmanager/alertmanager.yaml:ro
+      - alertmanager-data:/alertmanager
+    ports:
+      - "9094:9093"
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    logging: *default-logging
+
+  # ── UI ──────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: planificacion-obs-grafana
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_FEATURE_TOGGLES_ENABLE: "traceqlEditor traceQLStreaming flameGraph"
+      GF_LOG_LEVEL: warn
+    volumes:
+      - ./grafana/grafana.ini:/etc/grafana/grafana.ini:ro
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "13000:3000"
+    depends_on:
+      - tempo
+      - loki
+      - mimir
+      - pyroscope
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+    logging: *default-logging
+
+volumes:
+  minio-data:
+  grafana-data:
+  alertmanager-data:
+
+networks:
+  default:
+    name: planificacion-obs

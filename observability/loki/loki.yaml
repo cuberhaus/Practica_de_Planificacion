@@ -1,0 +1,74 @@
+# Loki 3.2 in single-binary mode — same trade-off as Tempo monolithic.
+# `boltdb-shipper` for the index, S3 for chunks; on a VPS the index can move
+# to TSDB shipper for sharding without changing the storage layout.
+
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9096
+  log_level: warn
+
+common:
+  ring:
+    kvstore:
+      store: inmemory
+    instance_addr: 127.0.0.1
+  replication_factor: 1
+  path_prefix: /loki
+
+ingester:
+  chunk_idle_period: 1h
+  chunk_target_size: 1048576
+  max_chunk_age: 1h
+
+schema_config:
+  configs:
+    - from: 2024-01-01
+      store: tsdb
+      object_store: s3
+      schema: v13
+      index:
+        prefix: loki_index_
+        period: 24h
+
+storage_config:
+  tsdb_shipper:
+    active_index_directory: /loki/tsdb-index
+    cache_location: /loki/tsdb-cache
+  aws:
+    bucketnames: ${S3_BUCKET}
+    endpoint: ${S3_ENDPOINT}
+    access_key_id: ${S3_ACCESS_KEY}
+    secret_access_key: ${S3_SECRET_KEY}
+    s3forcepathstyle: true
+    insecure: ${S3_INSECURE}
+    region: ${S3_REGION}
+
+compactor:
+  working_directory: /loki/compactor
+  compaction_interval: 10m
+  retention_enabled: true
+  retention_delete_delay: 2h
+  retention_delete_worker_count: 50
+  delete_request_store: s3
+
+# Generous limits for a learning PoC — drop these on the VPS.
+limits_config:
+  retention_period: 168h         # 7 days
+  ingestion_rate_mb: 16
+  ingestion_burst_size_mb: 32
+  max_streams_per_user: 10000
+  max_label_name_length: 1024
+  max_label_value_length: 4096
+  max_label_names_per_series: 30
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h
+  allow_structured_metadata: true
+  volume_enabled: true
+
+ruler:
+  alertmanager_url: http://alertmanager:9093
+
+analytics:
+  reporting_enabled: false
