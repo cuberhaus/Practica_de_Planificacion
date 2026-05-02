@@ -1,28 +1,18 @@
 /**
- * Phase 14 (Option A) — Sentry SDK + JSON-line stdout for the SvelteKit
- * planificacion backend. The DSN is empty by default so the SDK is a
- * no-op until you set it via PersonalPortfolio/.env.shared.
+ * Server hooks — Sentry-free baseline on the obs-experiment-lgtm branch.
  *
- * The `service` tag distinguishes this backend from other demos in the
- * shared Sentry project. The `console.*` wrapper emits one JSON object
- * per line so the PersonalPortfolio log-relay can forward backend logs
- * verbatim into the in-page debug overlay.
+ * `main` ships a Sentry-instrumented version of this file; on this branch
+ * we strip Sentry entirely so the LGTM PoC is a clean A/B against the
+ * Sentry-on-main baseline. Phase 2 of the PoC will replace the JSON-line
+ * `console.*` wrapper with Pino + pino-opentelemetry-transport, and add
+ * an `instrument.ts` boot file that wires the OTel NodeSDK before any
+ * other module loads.
+ *
+ * For now this commit is intentionally minimal: it keeps the JSON-line
+ * console wrapper so the PersonalPortfolio log-relay still gets readable
+ * stdout, and otherwise lets SvelteKit's defaults handle requests.
  */
-import * as Sentry from '@sentry/sveltekit';
 import type { Handle, HandleServerError } from '@sveltejs/kit';
-
-const dsn = process.env.SENTRY_DSN ?? '';
-
-if (dsn) {
-  Sentry.init({
-    dsn,
-    environment: process.env.SENTRY_ENVIRONMENT ?? 'local-dev',
-    release: process.env.SENTRY_RELEASE ?? 'local-dev',
-    tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE ?? '1.0'),
-    sendDefaultPii: false,
-  });
-  Sentry.setTag('service', 'planificacion');
-}
 
 type LogLevel = 'trace' | 'info' | 'warn' | 'error';
 const LEVEL_MAP: Record<string, LogLevel> = {
@@ -33,7 +23,7 @@ const LEVEL_MAP: Record<string, LogLevel> = {
   debug: 'trace',
 };
 
-if (process.env.SENTRY_DSN || process.env.STRUCTURED_LOGS === '1') {
+if (process.env.STRUCTURED_LOGS === '1') {
   for (const method of Object.keys(LEVEL_MAP)) {
     const orig = (console as unknown as Record<string, (...args: unknown[]) => void>)[method];
     (console as unknown as Record<string, (...args: unknown[]) => void>)[method] = (
@@ -54,10 +44,8 @@ if (process.env.SENTRY_DSN || process.env.STRUCTURED_LOGS === '1') {
   }
 }
 
-export const handle: Handle = dsn
-  ? Sentry.sentryHandle()
-  : (async ({ event, resolve }) => resolve(event));
+export const handle: Handle = async ({ event, resolve }) => resolve(event);
 
-export const handleError: HandleServerError = dsn
-  ? Sentry.handleErrorWithSentry()
-  : (({ error }) => ({ message: error instanceof Error ? error.message : String(error) }));
+export const handleError: HandleServerError = ({ error }) => ({
+  message: error instanceof Error ? error.message : String(error),
+});
