@@ -7,3 +7,4 @@ web/tools/
 web/.svelte-kit/
 web/build/
 
+observability/.env.obs
