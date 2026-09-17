@@ -35,8 +35,3 @@ src.zip: Basico/ Extension_1/ Extension_2/ Extension_3/ Extension_4/ Extra_2/ RE
 clean: ## Remove generated zips
 	rm -f Sara_Buceta_Pol_Casacuberta_Alejandro_Espinosa.zip src.zip
 
-##@ Understand (knowledge graph)
-
-.PHONY: understand-dashboard
-understand-dashboard: ## Launch the Understand Anything knowledge-graph dashboard (graph dir = repo root)
-	@node -e "require(require('os').homedir()+'/.understand-anything/repo/understand-anything-plugin/packages/dashboard/launch.cjs')"
